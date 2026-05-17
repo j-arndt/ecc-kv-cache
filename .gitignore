@@ -54,3 +54,10 @@ env/
 # HF token (NEVER commit)
 *.token
 hf_token.txt
+
+venv_colab/
+venv/
+__pycache__/
+build/
+*.egg-info/
+*.pyc
