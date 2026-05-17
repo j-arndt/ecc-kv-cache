@@ -52,7 +52,7 @@ class ErrorCorrectedCache(_HFCache):
 
         self.config = config
         self.batch_size = batch_size
-        self.max_cache_len = max_cache_len
+        self._max_cache_len = max_cache_len
         self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         self.num_heads = getattr(config, "num_key_value_heads",
@@ -248,7 +248,7 @@ class ErrorCorrectedCache(_HFCache):
 
     # Legacy compat: some transformers versions call this
     def get_max_length(self):
-        return self.max_cache_len
+        return self._max_cache_len
 
     def memory_bytes(self) -> dict:
         def _b(t): return t.numel() * t.element_size()
@@ -263,6 +263,6 @@ class ErrorCorrectedCache(_HFCache):
     def __repr__(self) -> str:
         mem = self.memory_bytes()
         return (f"ErrorCorrectedCache(seq_len={self._seen_tokens}, "
-                f"max_len={self.max_cache_len}, "
+                f"max_len={self._max_cache_len}, "
                 f"vram={mem['cache_gb']:.2f}GB, "
                 f"compression={mem['compression_ratio']:.1f}x)")
