@@ -1,0 +1,56 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.pyo
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# CUDA build artifacts
+*.cu.o
+*.cpp.o
+csrc/*.o
+custom_ecc_cuda*.so
+custom_ecc_cuda*.pyd
+
+# Results (committed manually after benchmark run)
+results/*.json
+results/*.csv
+results/*.png
+
+# Model cache (never commit weights)
+.cache/
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Calibration output (committed after A100 run)
+calibration_config.json
+
+# Data (download scripts provided)
+data/calibration/*.txt
+data/calibration/*.jsonl
+
+# Notebooks output
+notebooks/.ipynb_checkpoints/
+notebooks/**/.ipynb_checkpoints/
+
+# Environment
+.env
+.venv
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# HF token (NEVER commit)
+*.token
+hf_token.txt

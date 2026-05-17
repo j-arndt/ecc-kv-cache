@@ -1,0 +1,29 @@
+# Core
+torch>=2.1.0
+transformers>=4.40.0
+triton>=2.3.0
+accelerate>=0.27.0
+
+# Quantization baseline (for comparison benchmarks)
+bitsandbytes>=0.43.0
+
+# Calibration & math
+scipy>=1.12.0
+numpy>=1.26.0
+
+# Benchmarking & data
+datasets>=2.19.0
+huggingface_hub>=0.22.0
+tqdm>=4.66.0
+
+# Plotting (for article figures)
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Testing
+pytest>=8.0.0
+pytest-benchmark>=4.0.0
+
+# Notebook (HF Space demo)
+jupyter>=1.0.0
+ipywidgets>=8.0.0

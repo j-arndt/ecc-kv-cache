@@ -1,0 +1,7 @@
+# Git line ending config — forces LF in repo (Linux/macOS compatible for A100 Colab)
+* text=auto eol=lf
+*.cu text eol=lf
+*.cpp text eol=lf
+*.py text eol=lf
+*.h text eol=lf
+*.md text eol=lf
