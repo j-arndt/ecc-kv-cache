@@ -142,7 +142,13 @@ def _collect_kv_activations(
             inputs = tokenizer(
                 text, return_tensors="pt",
                 max_length=max_length, truncation=True,
-            ).to(device)
+            )
+            # BatchEncoding has .to(); plain dicts do not
+            if hasattr(inputs, "to"):
+                inputs = inputs.to(device)
+            else:
+                inputs = {k: v.to(device) if hasattr(v, "to") else v
+                          for k, v in inputs.items()}
             model(**inputs)
 
     for h in hooks:
