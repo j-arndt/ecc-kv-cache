@@ -100,64 +100,54 @@ class _KVHook:
 def _collect_kv_activations(
     model,
     tokenizer,
-    texts: List[str],
-    max_length: int = 2048,
-    device: str = "cuda",
-) -> Dict[int, Dict[str, torch.Tensor]]:
+    texts,
+    max_length=2048,
+    device="cuda",
+):
     """
     Run forward passes and collect KV activations per layer.
-
-    Returns:
-        {layer_idx: {"k": tensor[N, D], "v": tensor[N, D]}}
+    Hooks on k_proj/v_proj directly -- avoids DynamicCache format
+    changes in transformers >= 4.36 that broke the old attention hook.
     """
-    layer_kvs: Dict[int, Dict[str, List[torch.Tensor]]] = {}
-    num_layers = model.config.num_hidden_layers
+    import torch
 
+    layer_kvs = {}
+    num_layers = model.config.num_hidden_layers
     for i in range(num_layers):
         layer_kvs[i] = {"k": [], "v": []}
 
-    # Register hooks on each attention layer
     hooks = []
 
-    def make_hook(layer_idx):
-        def hook(module, args, kwargs, output):
-            # Capture key/value from attention output
-            if isinstance(output, tuple) and len(output) >= 3:
-                past_kv = output[2]
-                if past_kv is not None:
-                    k, v = past_kv
-                    # Sample random tokens for efficiency
-                    k_flat = k.detach().float().reshape(-1, k.shape[-1])
-                    v_flat = v.detach().float().reshape(-1, v.shape[-1])
-                    # Random sample up to 1000 tokens
-                    n = min(1000, k_flat.shape[0])
-                    idx = torch.randperm(k_flat.shape[0])[:n]
-                    layer_kvs[layer_idx]["k"].append(k_flat[idx].cpu())
-                    layer_kvs[layer_idx]["v"].append(v_flat[idx].cpu())
+    def make_k_hook(layer_idx):
+        def hook(module, input, output):
+            k = output.detach().float().reshape(-1, output.shape[-1])
+            n = min(1000, k.shape[0])
+            layer_kvs[layer_idx]["k"].append(k[torch.randperm(k.shape[0])[:n]].cpu())
+        return hook
+
+    def make_v_hook(layer_idx):
+        def hook(module, input, output):
+            v = output.detach().float().reshape(-1, output.shape[-1])
+            n = min(1000, v.shape[0])
+            layer_kvs[layer_idx]["v"].append(v[torch.randperm(v.shape[0])[:n]].cpu())
         return hook
 
     for i, layer in enumerate(model.model.layers):
-        handle = layer.self_attn.register_forward_hook(
-            make_hook(i), with_kwargs=True)
-        hooks.append(handle)
+        hooks.append(layer.self_attn.k_proj.register_forward_hook(make_k_hook(i)))
+        hooks.append(layer.self_attn.v_proj.register_forward_hook(make_v_hook(i)))
 
-    # Forward passes
     model.eval()
     with torch.no_grad():
         for text in texts:
             inputs = tokenizer(
-                text,
-                return_tensors="pt",
-                max_length=max_length,
-                truncation=True,
+                text, return_tensors="pt",
+                max_length=max_length, truncation=True,
             ).to(device)
-            model(**inputs, use_cache=True)
+            model(**inputs)
 
-    # Remove hooks
     for h in hooks:
         h.remove()
 
-    # Concatenate collected tensors
     result = {}
     for i in range(num_layers):
         if layer_kvs[i]["k"]:
@@ -165,8 +155,8 @@ def _collect_kv_activations(
                 "k": torch.cat(layer_kvs[i]["k"], dim=0),
                 "v": torch.cat(layer_kvs[i]["v"], dim=0),
             }
-
     return result
+
 
 
 # ─── Main calibration function ────────────────────────────────────────────
