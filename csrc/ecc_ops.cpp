@@ -6,6 +6,7 @@
  */
 #include <torch/extension.h>
 #include <cuda_fp16.h>
+#include <ATen/cuda/CUDAContext.h>  // at::cuda::getCurrentCUDAStream (PyTorch 2.x)
 #include "ecc_ops.h"
 
 // ─── Forward declarations (defined in .cu files) ──────────────────────────
@@ -37,7 +38,7 @@ torch::Tensor hadamard_rotate(torch::Tensor x) {
     TORCH_CHECK((D & (D - 1)) == 0, "D must be a power of 2");
     TORCH_CHECK(D <= 1024, "D must be <= 1024 (shared memory limit)");
 
-    auto stream = c10::cuda::getCurrentCUDAStream();
+    auto stream = at::cuda::getCurrentCUDAStream();
 
     if (x.scalar_type() == torch::kFloat16) {
         launch_hadamard_f16(
@@ -78,7 +79,7 @@ void compress_and_store(
     TORCH_CHECK(D == 128, "Only D=128 supported (hardcoded kernel)");
     TORCH_CHECK(cache_raw.size(1) == 128, "Cache must be [N, 128] bytes");
 
-    auto stream = c10::cuda::getCurrentCUDAStream();
+    auto stream = at::cuda::getCurrentCUDAStream();
 
     launch_compress_ecc(
         reinterpret_cast<const __half*>(x_rot.data_ptr<at::Half>()),
