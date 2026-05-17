@@ -103,6 +103,20 @@ class TestCacheInstantiation:
         r = repr(cache)
         assert "ErrorCorrectedCache" in r
 
+    def test_no_property_collision_with_hf_cache(self):
+        """
+        Regression: transformers Cache has max_cache_len as a read-only property.
+        Assigning self.max_cache_len = ... in __init__ crashes with AttributeError.
+        We use self._max_cache_len internally to avoid this.
+        """
+        from custom_kv.cache import ErrorCorrectedCache
+        cfg = FakeConfig()
+        # This must not raise: AttributeError: property 'max_cache_len' has no setter
+        cache = ErrorCorrectedCache(cfg, batch_size=1, max_cache_len=256, device="cpu")
+        # Internal storage uses private name
+        assert hasattr(cache, "_max_cache_len")
+        assert cache._max_cache_len == 256
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # TEST 2: compress / dequantize round-trip
