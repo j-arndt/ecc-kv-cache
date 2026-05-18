@@ -50,6 +50,13 @@ class ErrorCorrectedCache(_HFCache):
         except (TypeError, ValueError):
             pass
 
+        # transformers v5 Cache contract: base class operates over self.layers.
+        # Empty list signals non-compileable -> generate() uses eager path,
+        # which routes through update() and our patched SDPA. The base's
+        # per-layer delegation (self.layers[idx].method()) is never reached
+        # because we override every method that would touch it.
+        self.layers = []
+
         self.config = config
         self.batch_size = batch_size
         self._max_cache_len = max_cache_len
@@ -238,6 +245,30 @@ class ErrorCorrectedCache(_HFCache):
 
     def get_max_cache_shape(self):
         return None
+
+    # ── transformers v5 Cache contract: override base methods that touch self.layers ──
+
+    @property
+    def is_compileable(self) -> bool:
+        """ErrorCorrectedCache uses runtime SDPA patching, not torch.compile-compatible."""
+        return False
+
+    def get_mask_sizes(self, query_length: int, layer_idx: int = 0) -> tuple:
+        """Return (kv_length, kv_offset) for attention mask construction.
+        For decode (query_length=1), kv_length is the cached seq length, offset 0."""
+        seq_len = self.get_seq_length(layer_idx)
+        return (seq_len, 0)
+
+    def reset(self) -> None:
+        """Reset all per-layer cache state. Called by generate() between batches."""
+        self._layer_fill = [0] * self._num_layers
+        self._seen_tokens = 0
+
+    def crop(self, max_length: int) -> None:
+        """Truncate cache to max_length tokens per layer. Called by generate() on overflow."""
+        for i in range(self._num_layers):
+            self._layer_fill[i] = min(self._layer_fill[i], max_length)
+        self._seen_tokens = min(self._seen_tokens, max_length)
 
     @property
     def seen_tokens(self) -> int:
